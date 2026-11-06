@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""E3640A bench panel 0.3.0. Python 3.6+ on Linux."""
+"""E3640A bench panel 0.4.0. Python 3.6+ on Linux."""
 import argparse
 import csv
 import datetime
@@ -378,7 +378,7 @@ def main(panel_type=Panel):
     parser.add_argument("--status",action="store_true",help="print a single snapshot without X")
     parser.add_argument("--set",nargs=2,metavar=("CONTROL","VALUE"),
                         help="headless control: voltage, current, output, range or ovp")
-    parser.add_argument("--version",action="version",version="%(prog)s 0.3.0")
+    parser.add_argument("--version",action="version",version="%(prog)s 0.4.0")
     args = parser.parse_args()
     if args.status or args.set:
         import json

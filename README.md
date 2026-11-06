@@ -1,10 +1,28 @@
-# Bench supply panels 0.3.0
+# PSU Control 0.4.0
 
-Four Python/Tk X11 panels with RS-232 control, offline demos, and a CLI. Start the script matching the front-panel model. A live session checks the model identity and reads the existing settings before enabling the controls. Closing the app requests local control and sends no output command.
+A Python/Tk X11 launcher for up to five supplies, with four model-specific panels, RS-232 control, offline demos, and a CLI. Start the script matching the front-panel model. A live session checks the model identity and reads the existing settings before enabling the controls. Closing the app requests local control and sends no output command.
 
 ## Run
 
 Ubuntu 22.04: install python3 and python3-tk. RHEL 8: install python3 and python3-tkinter. Use the distribution Python (3.6 or newer) and a working X display. No pip packages or build step.
+
+Start the launcher from the repository directory.
+
+    python3 psu_control.py
+
+Check **Use** for each required row, select the model, and choose **Demo** or **Live**. Live rows enable the **USB serial port** dropdown, populated from `/dev/ttyUSB*`. Click **Refresh ports** after attaching an adapter or passing it through to a VM. The launcher keeps a blank port selection until you choose one. A removed idle port is cleared on refresh.
+
+Click **Open selected panels** to open up to five separate control windows. You can use multiple supplies of the same model and mix live and demo rows. Rows lock while their panels are open. Close a panel to reuse its row. A repeated click opens only selected rows that have no panel yet. The launcher rejects duplicate live-port assignments before starting the batch.
+
+**Identify** queries only the chosen port with `*IDN?` using 9600 baud, 8N2 and DTR/DSR. On a supported reply it selects the detected model in that row. It sends no remote-mode, output or setpoint commands. Identification has a timeout and runs in the background. The adapter must be attached to the powered supply, with the supply's RS-232 settings and cable configured correctly. Unresponsive ports and unsupported identities are reported. The live panel also verifies the model when it opens.
+
+USB enumeration alone identifies the adapter. The instrument's SCPI reply identifies the supply attached to it. The launcher probes a port only when you click Identify. Device numbers can change after unplugging adapters, so check selections after reconnecting them.
+
+**Live panel open** means the panel process is running. Check the panel itself for communication status and readings. Closing the launcher leaves the supply panels running, with each panel responsible for its own output and return-to-local behavior.
+
+![PSU Control launcher](launcher-panel.png)
+
+Each model panel can also be started directly.
 
     python3 e3631a.py --demo
     python3 e3640a.py --demo
@@ -71,7 +89,7 @@ For an E3632A demo OCP check, enable output at the initial 5 V / 1 A setting and
 
 ## Validation
 
-Run `python3 -m unittest -v` in this directory. Nine tests cover the existing E3640A/E3631A behavior, the new current limits and ranges, model identification, E3632A OCP commands and latching, memory recall and CLI bounds. All four panels were exercised under X11 with demo devices, including controls, CSV logging and orderly shutdown. The user confirmed the 0.2.0 demo runs on RHEL 8. The new 0.3.0 panels and physical instrument communications await bench verification.
+Run `python3 -m unittest -v` in this directory. Thirteen tests cover the existing E3640A/E3631A behavior, the new current limits and ranges, model identification, E3632A OCP commands and latching, memory recall and CLI bounds, plus launcher command generation, port ordering and identity-query cleanup. All four panels were exercised under X11 with demo devices, including controls, CSV logging and orderly shutdown. The user confirmed the 0.2.0 demo runs on RHEL 8. The 0.4.0 launcher was exercised under X11 with five actual demo panel processes, repeat launching, child restart, launcher closure, port-refresh handling and simulated identity replies. The new launcher and panels await RHEL 8 and physical instrument verification.
 
 The applications retain Python 3.6 compatibility. Version 0.3.0 also cancels the GUI polling callback on close to prevent a pending callback from running after the window is destroyed.
 

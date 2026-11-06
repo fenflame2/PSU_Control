@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""E3631A triple-output supply panel and CLI, version 0.3.0."""
+"""E3631A triple-output supply panel and CLI, version 0.4.0."""
 import argparse
 import json
 import math
@@ -77,7 +77,7 @@ def main():
     source = parser.add_mutually_exclusive_group()
     source.add_argument("--port",help="live E3631A serial device")
     source.add_argument("--demo",action="store_true",help="offline simulator (default)")
-    parser.add_argument("--version",action="version",version="%(prog)s 0.3.0")
+    parser.add_argument("--version",action="version",version="%(prog)s 0.4.0")
     parser.add_argument("--status",action="store_true",help="print selected rail snapshot and exit")
     parser.add_argument("--rail",choices=RAILS,help="select a rail for CLI readback or adjustment")
     parser.add_argument("--set",nargs=2,metavar=("CONTROL","VALUE"),

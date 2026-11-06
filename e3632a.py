@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""E3632A single-output bench panel 0.3.0."""
+"""E3632A single-output bench panel 0.4.0."""
 import math
 import e3640a as shared
 from supply import Serial

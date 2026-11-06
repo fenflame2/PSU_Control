@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""E3644A single-output bench panel 0.3.0."""
+"""E3644A single-output bench panel 0.4.0."""
 import e3640a as shared
 from supply import Serial
 from single_models import E3644_RANGES, E3644Demo, E3644Instrument
