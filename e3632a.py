@@ -1,0 +1,59 @@
+#!/usr/bin/env python3
+"""E3632A single-output bench panel 0.3.0."""
+import math
+import e3640a as shared
+from supply import Serial
+from single_models import E3632_RANGES, E3632Demo, E3632Instrument
+
+
+def session(port):
+    return E3632Instrument(Serial(port)) if port else E3632Demo()
+
+
+class E3632Panel(shared.Panel):
+    model = "E3632A"
+    description = "DC POWER SUPPLY   /   120 W"
+    ranges = E3632_RANGES
+    connect = staticmethod(session)
+    ovp_bounds = (1.,32.)
+    ocp_bounds = (0.,7.5)
+    memory_slots = 3
+    key_columns = 5
+    csv_fields = shared.Panel.csv_fields + ("ocp","ocp_enabled","ocp_trip")
+    csv_header = shared.Panel.csv_header + ("ocp_A","ocp_enabled","ocp_trip")
+
+    def front_keys(self):
+        return [("15 V / 7 A",lambda:self.change_range("P15V")),
+                ("30 V / 4 A",lambda:self.change_range("P30V")),
+                ("Over Voltage",self.protection), ("Over Current",self.current_protection),
+                ("Display Limit",self.display_limit),
+                ("Recall",lambda:self.memory("recall")), ("Store",lambda:self.memory("save")),
+                ("View / Local",self.local), ("Voltage / Current",self.axis_key)]
+
+    def annunciators(self,state):
+        text = super().annunciators(state)
+        if state["ocp_trip"]:
+            return text + "    |    OCP TRIPPED"
+        return text + "    |    OCP " + ("ON" if state["ocp_enabled"] else "OFF")
+
+    def current_protection(self):
+        state = self.state
+        menu = shared.tk.Menu(self.root,tearoff=False)
+        def level():
+            val = shared.simpledialog.askfloat("Overcurrent protection","Trip level (A)",
+                        initialvalue=state["ocp"],minvalue=self.ocp_bounds[0],
+                        maxvalue=self.ocp_bounds[1],parent=self.root)
+            if val is not None and math.isfinite(val):
+                self.send("ocp",round(val,3))
+        menu.add_command(label="Trip level  -  {:g} A...".format(state["ocp"]),command=level)
+        menu.add_command(label="Disable protection" if state["ocp_enabled"] else "Enable protection",
+                         command=lambda:self.send("ocp_enabled",int(not state["ocp_enabled"])))
+        menu.add_command(label="Clear OCP trip",command=lambda:self.send("ocp_clear",None))
+        try:
+            menu.tk_popup(self.root.winfo_pointerx(),self.root.winfo_pointery())
+        finally:
+            menu.grab_release()
+
+
+if __name__ == "__main__":
+    shared.main(E3632Panel)

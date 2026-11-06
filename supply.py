@@ -63,6 +63,7 @@ class Serial:
 
 class Instrument:
     model = "E3640A"
+    ranges = RANGES
 
     def __init__(self, link):
         self.link = link
@@ -94,7 +95,7 @@ class Instrument:
             if not math.isfinite(s[key]):
                 raise IOError("Invalid reading for " + command)
         s["range"] = q("VOLT:RANG?").upper()
-        if s["range"] not in RANGES:
+        if s["range"] not in self.ranges:
             raise IOError("Unrecognized range")
         for key, command in (("on","OUTP?"), ("protect","VOLT:PROT:STAT?"),
                              ("trip","VOLT:PROT:TRIP?")):
@@ -116,8 +117,12 @@ class Instrument:
 
 
 class Demo:
+    ranges = RANGES
+    initial_range = "P8V"
+    ovp_max = 22.
+
     def __init__(self):
-        self.settings = dict(v=5., i=1., on=False, range="P8V", ovp=22., protect=True)
+        self.settings = dict(v=5., i=1., on=False, range=self.initial_range, ovp=self.ovp_max, protect=True)
         self.load = 10.
         self.trip = False
         self.slots = {}
@@ -150,7 +155,7 @@ class Demo:
             self.trip = False
         elif key == "range":
             s[key] = val
-            vmax, imax = RANGES[val]
+            vmax, imax = self.ranges[val]
             s["v"] = min(s["v"], vmax)
             s["i"] = min(s["i"], imax)
         else:

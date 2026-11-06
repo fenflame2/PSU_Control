@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""E3640A bench panel 0.2.0. Python 3.6+ on Linux."""
+"""E3640A bench panel 0.3.0. Python 3.6+ on Linux."""
 import argparse
 import csv
 import datetime
@@ -59,6 +59,9 @@ def load_tk():
 
 class Panel:
     model = "E3640A"
+    ranges = RANGES
+    ovp_bounds = (1.,22.)
+    key_columns = 4
     description = "DC POWER SUPPLY   /   30 W"
     connect = staticmethod(session)
     demo_notice = "Simulated load  |  10 ohm"
@@ -119,8 +122,8 @@ class Panel:
         bank.grid(row=3,column=0,sticky="ew")
         labels = self.front_keys()
         for n,(label,fn) in enumerate(labels):
-            bank.columnconfigure(n%4,weight=1)
-            self.key(bank,label,fn,n//4,n%4)
+            bank.columnconfigure(n%self.key_columns,weight=1)
+            self.key(bank,label,fn,n//self.key_columns,n%self.key_columns)
         self.terminal_group(body)
         strip = tk.Frame(body,bg=CASE)
         strip.grid(row=4,column=0,columnspan=2,sticky="ew",pady=(16,0))
@@ -223,7 +226,7 @@ class Panel:
         if self.last_view != view:
             self.draw()
             self.last_view = view
-        self.root.after(50,self.pump)
+        self.poll_timer = self.root.after(50,self.pump)
 
     def draw(self):
         enabled = bool(self.state) and not self.pending
@@ -272,7 +275,7 @@ class Panel:
         return 0
 
     def maximum(self):
-        return RANGES[self.state["range"]][0 if self.axis=="v" else 1]
+        return self.ranges[self.state["range"]][0 if self.axis=="v" else 1]
 
     def adjust(self,delta):
         if self.state and not self.pending:
@@ -299,7 +302,7 @@ class Panel:
         menu = tk.Menu(self.root,tearoff=False)
         def level():
             val = simpledialog.askfloat("Overvoltage protection","Trip level (V)",initialvalue=s["ovp"],
-                                        minvalue=1,maxvalue=22,parent=self.root)
+                                        minvalue=self.ovp_bounds[0],maxvalue=self.ovp_bounds[1],parent=self.root)
             if val is not None and math.isfinite(val):
                 self.send("ovp",round(val,3))
         menu.add_command(label="Trip level  -  {:g} V...".format(s["ovp"]),command=level)
@@ -353,6 +356,7 @@ class Panel:
             self.notice.config(text="Logging  |  " + path)
 
     def close(self):
+        self.root.after_cancel(self.poll_timer)
         self.stop.set()
         self.requests.put((None,None))
         self.stop_log()
@@ -366,27 +370,29 @@ class Panel:
             self.root.destroy()
 
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description=__doc__)
+def main(panel_type=Panel):
+    parser = argparse.ArgumentParser(description=panel_type.model + " bench supply panel")
     group = parser.add_mutually_exclusive_group()
-    group.add_argument("--port",help="live E3640A serial device")
+    group.add_argument("--port",help="live " + panel_type.model + " serial device")
     group.add_argument("--demo",action="store_true",help="offline simulator (default)")
     parser.add_argument("--status",action="store_true",help="print a single snapshot without X")
     parser.add_argument("--set",nargs=2,metavar=("CONTROL","VALUE"),
                         help="headless control: voltage, current, output, range or ovp")
-    parser.add_argument("--version",action="version",version="%(prog)s 0.2.0")
+    parser.add_argument("--version",action="version",version="%(prog)s 0.3.0")
     args = parser.parse_args()
     if args.status or args.set:
         import json
         try:
-            device = session(args.port)
+            device = panel_type.connect(args.port)
             try:
                 state = device.state()
                 if args.set:
                     name,raw = args.set
-                    limits = RANGES[state["range"]]
+                    limits = panel_type.ranges[state["range"]]
                     settings = {"voltage":("v",0,limits[0]),"current":("i",0,limits[1]),
-                                "ovp":("ovp",1,22)}
+                                "ovp":("ovp",*panel_type.ovp_bounds)}
+                    if hasattr(panel_type,"ocp_bounds"):
+                        settings["ocp"] = ("ocp",*panel_type.ocp_bounds)
                     if name in settings:
                         key,low,high = settings[name]
                         value = float(raw)
@@ -394,10 +400,10 @@ if __name__ == "__main__":
                             raise ValueError("Allowed {}: {} to {}".format(name,low,high))
                     elif name == "output" and raw in ("on","off"):
                         key,value = "on",int(raw=="on")
-                    elif name == "range" and raw.upper() in RANGES:
+                    elif name == "range" and raw.upper() in panel_type.ranges:
                         key,value = "range",raw.upper()
                     else:
-                        raise ValueError("Expected voltage V, current A, ovp V, output on/off or range P8V/P20V")
+                        raise ValueError("Expected voltage V, current A, ovp V, output on/off or range " + "/".join(panel_type.ranges))
                     device.action(key,value)
                     state = device.state()
                 print(json.dumps(state,indent=2))
@@ -407,5 +413,9 @@ if __name__ == "__main__":
             sys.exit(str(exc))
     else:
         root = load_tk().Tk()
-        Panel(root,args.port)
+        panel_type(root,args.port)
         root.mainloop()
+
+
+if __name__ == "__main__":
+    main()
