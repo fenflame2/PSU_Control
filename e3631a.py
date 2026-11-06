@@ -18,7 +18,7 @@ class TriplePanel(shared.Panel):
     model = "E3631A"
     description = "TRIPLE OUTPUT DC POWER SUPPLY   /   80 W"
     connect = staticmethod(session)
-    demo_notice = "Offline demonstration"
+    demo_notice = "Simulated load  |  10 ohm"
     memory_slots = 3
     output_label = "All outputs"
     csv_fields = ("rail","on","v","i","mv","mi","mode","track")
@@ -31,7 +31,18 @@ class TriplePanel(shared.Panel):
                        ("View / Local",self.local),("Voltage / Current",self.axis_key)]
 
     def terminal_group(self,body):
-        self.track_button = self.key(body,"Track +/-25 V",self.tracking,3,1)
+        group = shared.tk.Frame(body,bg=shared.CASE)
+        group.grid(row=3,column=1,padx=(12,0))
+        terminals = shared.tk.Canvas(group,width=252,height=65,bg=shared.CASE,highlightthickness=0)
+        terminals.grid(row=0,column=0)
+        posts = [(23,"#b84736","6V +"),(64,"#262b2a","6V -"),
+                 (105,"#b84736","+25V"),(146,"#262b2a","COM"),
+                 (187,"#39748d","-25V"),(228,"#51765e","GND")]
+        for x,color,label in posts:
+            terminals.create_text(x,12,text=label,fill=shared.INK,font=("Helvetica",10,"bold"))
+            for radius,fill in [(17,"#92958b"),(15,color),(7,"#a6a39b"),(5,"#282b29")]:
+                terminals.create_oval(x-radius,42-radius,x+radius,42+radius,fill=fill,outline="")
+        self.track_button = self.key(group,"Track +/-25 V",self.tracking,1,0)
 
     def tracking(self):
         self.send("track",int(not self.state["track"]))
@@ -51,7 +62,8 @@ class TriplePanel(shared.Panel):
                     key.config(relief="sunken" if key.cget("text") == LABEL[s["rail"]] else "raised")
             if not self.port:
                 self.load = s["load"]
-                self.sub.config(text=self.sub.cget("text") + "   |   Load {:g} ohm".format(self.load))
+                if self.notice.cget("text").startswith("Simulated load"):
+                    self.notice.config(text="Simulated load  |  {:g} ohm ({})".format(self.load,LABEL[s["rail"]]))
 
     def minimum(self):
         return bounds(self.state["rail"],self.axis)[0]
@@ -70,6 +82,7 @@ class TriplePanel(shared.Panel):
                                            initialvalue=self.load,minvalue=.001,maxvalue=1e9,parent=self.root)
         if val is not None and math.isfinite(val):
             shared.Panel.send(self,"load",(rail,val))
+            self.notice.config(text="Simulated load  |  {:g} ohm ({})".format(val,LABEL[rail]))
 
 
 def main():
