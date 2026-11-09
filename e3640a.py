@@ -380,7 +380,14 @@ def main(panel_type=Panel):
                         help="headless control: voltage, current, output, range or ovp")
     parser.add_argument("--version",action="version",
                         version="%(prog)s " + getattr(panel_type,"version","0.4.0"))
+    if hasattr(panel_type,"command_delay"):
+        parser.add_argument("--command-delay",type=float,default=panel_type.command_delay,
+                            help="operating gap in seconds (default: 0.05; slow fallback: 0.5)")
     args = parser.parse_args()
+    if hasattr(args,"command_delay"):
+        if not math.isfinite(args.command_delay) or not 0 <= args.command_delay <= 2:
+            parser.error("--command-delay must be between 0 and 2 seconds")
+        panel_type.command_delay = args.command_delay
     if args.status or args.set:
         import json
         try:

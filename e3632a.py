@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""E3632A single-output bench panel 0.4.1."""
+"""E3632A single-output bench panel 0.4.2."""
 import math
 import time
 import e3640a as shared
@@ -11,24 +11,38 @@ class E3632Serial(Serial):
     """Conservative pacing for older E3632A RS-232 firmware.
 
     The half-second gap passed the physical IDN/remote/VOLT startup test.
-    Apply it before every command, including queries and return to local.
+    Retain it for the first three commands (IDN, remote, first VOLT query).
+    Subsequent commands use the configurable operating delay.
     Query reads still complete before the next command's delay begins.
     """
+    def __init__(self, path, command_delay=0.05):
+        if not math.isfinite(command_delay) or not 0 <= command_delay <= 2:
+            raise ValueError("Command delay must be between 0 and 2 seconds")
+        self.command_delay = command_delay
+        self.startup_remaining = 3
+        super().__init__(path)
+
     def write(self, command):
-        time.sleep(0.5)
+        delay = max(0.5, self.command_delay) if self.startup_remaining else self.command_delay
+        time.sleep(delay)
         super().write(command)
+        self.startup_remaining = max(0, self.startup_remaining - 1)
 
 
-def session(port):
-    return E3632Instrument(E3632Serial(port)) if port else E3632Demo()
+def session(port, command_delay=0.05):
+    return E3632Instrument(E3632Serial(port, command_delay)) if port else E3632Demo()
 
 
 class E3632Panel(shared.Panel):
     model = "E3632A"
-    version = "0.4.1"
+    version = "0.4.2"
+    command_delay = 0.05
     description = "DC POWER SUPPLY   /   120 W"
     ranges = E3632_RANGES
-    connect = staticmethod(session)
+    @classmethod
+    def connect(cls, port):
+        return session(port, cls.command_delay)
+
     ovp_bounds = (1.,32.)
     ocp_bounds = (0.,7.5)
     memory_slots = 3

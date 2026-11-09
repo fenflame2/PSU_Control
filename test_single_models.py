@@ -10,21 +10,28 @@ from single_models import E3632Demo, E3632Instrument, E3644Demo, E3644Instrument
 
 class SingleModelTests(unittest.TestCase):
     def test_e3632_pacing_through_startup_poll_action_and_close(self):
-        # Simulate a supply that rejects a command within 0.5 s of the
-        # preceding response/command; exercise the real query reader.
+        for delay in (0.05, 0.5):
+            with self.subTest(delay=delay):
+                self.check_pacing(delay)
+
+    def check_pacing(self, delay):
+        # Verify startup retains the bench-tested gaps, and operating gaps
+        # start after the complete reply. This is not a hardware speed test.
         _, answers = self.link('E3632A', 'P15V')
         clock = [0.0]
         last = [0.0]
         pending = bytearray()
         seen = []
-        link = E3632Serial.__new__(E3632Serial)
+        with patch('supply.Serial.__init__', return_value=None):
+            link = E3632Serial('fake', command_delay=delay)
         link.fd = -1
 
         def sleep(seconds):
             clock[0] += seconds
 
         def send(command):
-            self.assertGreaterEqual(clock[0] - last[0], 0.5)
+            expected = 0.5 if len(seen) < 3 else delay
+            self.assertAlmostEqual(clock[0] - last[0], expected)
             self.assertFalse(pending, 'Previous reply was not consumed')
             seen.append(command)
             last[0] = clock[0]
@@ -52,6 +59,17 @@ class SingleModelTests(unittest.TestCase):
             close.assert_called_once_with(-1)
         self.assertEqual(seen[:3], ['*IDN?', 'SYST:REM', 'VOLT?'])
         self.assertEqual(seen[-3:], ['VOLT 4.0', 'SYST:ERR?', 'SYST:LOC'])
+
+    def test_e3632_delay_cli_validation(self):
+        for delay in ('nan', 'inf', '-1', '3'):
+            result = subprocess.run([sys.executable, 'e3632a.py', '--demo',
+                                     '--status', '--command-delay', delay],
+                                    stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            self.assertEqual(result.returncode, 2)
+        result = subprocess.run([sys.executable, 'e3632a.py', '--demo',
+                                 '--status', '--command-delay', '0.5'],
+                                stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        self.assertEqual(result.returncode, 0, result.stderr)
 
     def test_e3644_full_current_and_ranges(self):
         d = E3644Demo()

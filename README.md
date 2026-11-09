@@ -1,14 +1,25 @@
 # PSU Control 0.4.0
 
-### E3632A panel update 0.4.1
+### E3632A panel update 0.4.2
 
-The E3632A live panel now waits 0.5 seconds before each serial command,
-including startup, polling, controls and return to local on close. This follows
-a physical test where IDN/remote/VOLT succeeded with these gaps after the
-unpaced panel failed at VOLT? with instrument error -410. Full-panel hardware
-validation is still pending. Expect about seven seconds per complete snapshot;
-controls also wait for the current snapshot to finish. Other models and demo
+Version 0.4.1 passed the user's full-panel hardware test with 0.5 seconds
+between commands, but button response was slow (about three seconds).
+Version 0.4.2 retains 0.5-second gaps for the first three commands (IDN,
+remote mode, first VOLT query), then uses 0.05 seconds between commands.
+This reduces the deliberate delay in each subsequent 13-query snapshot
+from 6.5 seconds to 0.65 seconds, plus serial transfer and instrument time.
+Controls still wait for an in-progress snapshot to finish. The shorter
+operating gap needs hardware validation; it is not a measured minimum.
+The launcher uses this new default automatically. Other models and demo
 timing are unchanged. Check with `python3 e3632a.py --version`.
+
+If -410 returns, close the panel and clear the supply's errors before trying
+a larger gap directly (use your assigned port):
+
+    python3 e3632a.py --port /dev/ttyUSB0 --command-delay 0.1
+
+Use `--command-delay 0.5` to restore the hardware-tested slow spacing.
+The setting is per invocation and is not saved by the launcher.
 
 The standalone `diagnose_e3632a.py --port /dev/ttyUSB0` remains available for
 the original three-command test. It deliberately leaves the supply in remote
