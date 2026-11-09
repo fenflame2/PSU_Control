@@ -1,5 +1,19 @@
 # PSU Control 0.4.0
 
+### E3632A panel update 0.4.1
+
+The E3632A live panel now waits 0.5 seconds before each serial command,
+including startup, polling, controls and return to local on close. This follows
+a physical test where IDN/remote/VOLT succeeded with these gaps after the
+unpaced panel failed at VOLT? with instrument error -410. Full-panel hardware
+validation is still pending. Expect about seven seconds per complete snapshot;
+controls also wait for the current snapshot to finish. Other models and demo
+timing are unchanged. Check with `python3 e3632a.py --version`.
+
+The standalone `diagnose_e3632a.py --port /dev/ttyUSB0` remains available for
+the original three-command test. It deliberately leaves the supply in remote
+mode; the normal panel requests local mode when closed.
+
 A Python/Tk X11 launcher for up to five supplies, with four model-specific panels, RS-232 control, offline demos, and a CLI. Start the script matching the front-panel model. A live session checks the model identity and reads the existing settings before enabling the controls. Closing the app requests local control and sends no output command.
 
 ## Run

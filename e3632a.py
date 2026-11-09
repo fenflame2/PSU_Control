@@ -1,17 +1,31 @@
 #!/usr/bin/env python3
-"""E3632A single-output bench panel 0.4.0."""
+"""E3632A single-output bench panel 0.4.1."""
 import math
+import time
 import e3640a as shared
 from supply import Serial
 from single_models import E3632_RANGES, E3632Demo, E3632Instrument
 
 
+class E3632Serial(Serial):
+    """Conservative pacing for older E3632A RS-232 firmware.
+
+    The half-second gap passed the physical IDN/remote/VOLT startup test.
+    Apply it before every command, including queries and return to local.
+    Query reads still complete before the next command's delay begins.
+    """
+    def write(self, command):
+        time.sleep(0.5)
+        super().write(command)
+
+
 def session(port):
-    return E3632Instrument(Serial(port)) if port else E3632Demo()
+    return E3632Instrument(E3632Serial(port)) if port else E3632Demo()
 
 
 class E3632Panel(shared.Panel):
     model = "E3632A"
+    version = "0.4.1"
     description = "DC POWER SUPPLY   /   120 W"
     ranges = E3632_RANGES
     connect = staticmethod(session)

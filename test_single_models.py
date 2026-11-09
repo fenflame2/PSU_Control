@@ -3,11 +3,56 @@ import json
 import subprocess
 import sys
 import unittest
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
+from e3632a import E3632Serial
 from single_models import E3632Demo, E3632Instrument, E3644Demo, E3644Instrument
 
 
 class SingleModelTests(unittest.TestCase):
+    def test_e3632_pacing_through_startup_poll_action_and_close(self):
+        # Simulate a supply that rejects a command within 0.5 s of the
+        # preceding response/command; exercise the real query reader.
+        _, answers = self.link('E3632A', 'P15V')
+        clock = [0.0]
+        last = [0.0]
+        pending = bytearray()
+        seen = []
+        link = E3632Serial.__new__(E3632Serial)
+        link.fd = -1
+
+        def sleep(seconds):
+            clock[0] += seconds
+
+        def send(command):
+            self.assertGreaterEqual(clock[0] - last[0], 0.5)
+            self.assertFalse(pending, 'Previous reply was not consumed')
+            seen.append(command)
+            last[0] = clock[0]
+            if command in answers:
+                pending.extend((answers[command] + '\r\n').encode('ascii'))
+
+        def read(fd, size):
+            # Include response transmission time in the interval check.
+            clock[0] += 0.002
+            last[0] = clock[0]
+            value = bytes(pending[:size])
+            del pending[:size]
+            return value
+
+        with patch('e3632a.time.sleep', side_effect=sleep), \
+                patch('supply.time.monotonic', side_effect=lambda: clock[0]), \
+                patch('supply.Serial.write', side_effect=send), \
+                patch('supply.select.select', return_value=([-1], [], [])), \
+                patch('supply.os.read', side_effect=read), \
+                patch('supply.os.close') as close:
+            device = E3632Instrument(link)
+            self.assertEqual(device.state()['v'], 5.0)
+            device.action('v', 4.0)
+            device.close()
+            close.assert_called_once_with(-1)
+        self.assertEqual(seen[:3], ['*IDN?', 'SYST:REM', 'VOLT?'])
+        self.assertEqual(seen[-3:], ['VOLT 4.0', 'SYST:ERR?', 'SYST:LOC'])
+
     def test_e3644_full_current_and_ranges(self):
         d = E3644Demo()
         d.action('i',8.)

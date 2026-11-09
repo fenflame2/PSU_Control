@@ -378,7 +378,8 @@ def main(panel_type=Panel):
     parser.add_argument("--status",action="store_true",help="print a single snapshot without X")
     parser.add_argument("--set",nargs=2,metavar=("CONTROL","VALUE"),
                         help="headless control: voltage, current, output, range or ovp")
-    parser.add_argument("--version",action="version",version="%(prog)s 0.4.0")
+    parser.add_argument("--version",action="version",
+                        version="%(prog)s " + getattr(panel_type,"version","0.4.0"))
     args = parser.parse_args()
     if args.status or args.set:
         import json
